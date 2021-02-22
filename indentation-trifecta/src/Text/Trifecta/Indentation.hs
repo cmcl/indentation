@@ -13,6 +13,7 @@ module Text.Trifecta.Indentation (
   ) where
 
 import Control.Applicative
+import Control.Monad.Fail as Fail
 import Control.Monad.State.Lazy as LazyState
 import Control.Monad.State.Strict as StrictState
 
@@ -181,5 +182,5 @@ checkIndentation m = IndentationParserT $ do
     is <- get
     p <- position
     let ok is' = do x <- m; put is'; return x
-        err msg = fail msg
+        err msg = Fail.fail msg
     I.updateIndentation is (fromIntegral $ column p + 1) ok err
