@@ -13,7 +13,6 @@ module Text.Trifecta.Indentation (
   ) where
 
 import Control.Applicative
-import Control.Monad.Fail as Fail
 import Control.Monad.State.Lazy as LazyState
 import Control.Monad.State.Strict as StrictState
 
@@ -90,10 +89,10 @@ newtype IndentationParserT t m a = IndentationParserT { unIndentationParserT :: 
   deriving (Functor, Applicative, Monad, MonadTrans, MonadPlus, Alternative)
 
 deriving instance (Parsing m, MonadPlus m) => Parsing (IndentationParserT t m)
-deriving instance (MonadFail m, DeltaParsing m) => DeltaParsing (IndentationParserT Char m)
-deriving instance (MonadFail m, MarkParsing Delta m) => MarkParsing Delta (IndentationParserT Char m)
-deriving instance (MonadFail m, DeltaParsing m) => DeltaParsing (IndentationParserT Token m)
-deriving instance (MonadFail m, MarkParsing Delta m) => MarkParsing Delta (IndentationParserT Token m)
+deriving instance (DeltaParsing m) => DeltaParsing (IndentationParserT Char m)
+deriving instance (MarkParsing Delta m) => MarkParsing Delta (IndentationParserT Char m)
+deriving instance (DeltaParsing m) => DeltaParsing (IndentationParserT Token m)
+deriving instance (MarkParsing Delta m) => MarkParsing Delta (IndentationParserT Token m)
 
 {-# INLINE runIndentationParserT #-}
 runIndentationParserT :: IndentationParserT t m a -> IndentationState -> m (a, IndentationState)
@@ -113,10 +112,10 @@ execIndentationParserT (IndentationParserT m) = LazyState.execStateT m
 
 -- Putting the check in CharParsing --
 
-instance (MonadFail m, DeltaParsing m) => CharParsing (IndentationParserT Char m) where
+instance (DeltaParsing m) => CharParsing (IndentationParserT Char m) where
   satisfy f = checkIndentation (satisfy f)
 
-instance (MonadFail m, DeltaParsing m) => TokenParsing (IndentationParserT Char m) where
+instance (DeltaParsing m) => TokenParsing (IndentationParserT Char m) where
   someSpace = IndentationParserT $ someSpace -- Ignore indentation of whitespace
 
 -- Putting the check in TokenParsing --
@@ -126,7 +125,7 @@ data Token
 instance (DeltaParsing m) => CharParsing (IndentationParserT Token m) where
   satisfy f = IndentationParserT $ satisfy f
 
-instance (MonadFail m, DeltaParsing m) => TokenParsing (IndentationParserT Token m) where
+instance (DeltaParsing m) => TokenParsing (IndentationParserT Token m) where
   token p = checkIndentation (token (unIndentationParserT p))
 
 --------
@@ -177,10 +176,10 @@ localStateUnlessAbsMode pre post m = IndentationParserT $ do
   unIndentationParserT $ if a then m else localState pre post m
 
 {-# INLINE checkIndentation #-}
-checkIndentation :: (MonadFail m, DeltaParsing m) => LazyState.StateT IndentationState m a -> IndentationParserT t m a
+checkIndentation :: (DeltaParsing m) => LazyState.StateT IndentationState m a -> IndentationParserT t m a
 checkIndentation m = IndentationParserT $ do
     is <- get
     p <- position
     let ok is' = do x <- m; put is'; return x
-        err msg = Fail.fail msg
+        err msg = fail msg
     I.updateIndentation is (fromIntegral $ column p + 1) ok err
